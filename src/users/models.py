@@ -63,7 +63,7 @@ class UserModel(Base):
     role: Mapped[RoleEnum] = mapped_column(
         Enum(RoleEnum, name='role_enum'),
         nullable=False,
-        server_default=RoleEnum.USER
+        server_default=RoleEnum.USER.value
     )
 
     is_email_confirmed: Mapped[bool] = mapped_column(
