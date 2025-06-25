@@ -13,6 +13,10 @@ class GenderEnum(PyEnum):
     MALE = 'MALE'
     FEMALE = 'FEMALE'
 
+class RoleEnum(PyEnum):
+    USER = 'USER'
+    ADMIN = 'ADMIN'
+
 class UserModel(Base):
     __tablename__ = 'users'
 
@@ -51,9 +55,15 @@ class UserModel(Base):
     )
 
     gender: Mapped[GenderEnum] = mapped_column(
-        Enum(GenderEnum),
+        Enum(GenderEnum, name='gender_enum'),
         nullable=True,
         index=True
+    )
+
+    role: Mapped[RoleEnum] = mapped_column(
+        Enum(RoleEnum, name='role_enum'),
+        nullable=False,
+        server_default=RoleEnum.USER
     )
 
     is_email_confirmed: Mapped[bool] = mapped_column(
@@ -70,7 +80,8 @@ class UserModel(Base):
 
     last_visit: Mapped[datetime] = mapped_column(
         PGDateTime,
-        nullable=False
+        nullable=False,
+        server_default=func.now()
     )
 
     password: Mapped[str] = mapped_column(
