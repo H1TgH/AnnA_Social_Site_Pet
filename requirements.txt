@@ -10,3 +10,4 @@ psycopg2==2.9.10
 gunicorn
 python-dotenv
 python-jose[cryptography]
+aiosmtplib
