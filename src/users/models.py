@@ -9,11 +9,11 @@ from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from src.database import Base
 
 
-class GenderEnum(PyEnum):
+class GenderEnum(str, PyEnum):
     MALE = 'MALE'
     FEMALE = 'FEMALE'
 
-class RoleEnum(PyEnum):
+class RoleEnum(str, PyEnum):
     USER = 'USER'
     ADMIN = 'ADMIN'
 

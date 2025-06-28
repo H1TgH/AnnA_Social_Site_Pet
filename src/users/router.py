@@ -10,7 +10,7 @@ from src.users.models import UserModel
 from src.users.schemas import RegistrationSchema
 from src.users.utils import hash_password, create_access_token
 from src.users.utils import SECRET_KEY, ALGORITHM
-from src.services.email_service import send_confirmation_email
+from src.email_service.utils import send_confirmation_email
 
 
 users_router = APIRouter()
@@ -18,7 +18,7 @@ users_router = APIRouter()
 @users_router.post('/api/v1/public/register', tags=['Users'])
 async def register_user(
     data: RegistrationSchema,
-    session: SessionDep = Depends()
+    session: SessionDep
 ):
     user_exists = await session.execute(select(UserModel).where(UserModel.email == data.email))
     if user_exists.scalar():
@@ -44,14 +44,14 @@ async def register_user(
 
     token = create_access_token({'sub': str(user.id)}, expires_delta=timedelta(hours=2))
 
-    await send_confirmation_email(user.email, token)
+    await send_confirmation_email(user)
 
     return {'message': 'Registration successful. Please confirm your email.'}
 
-@users_router.get('/api/v1/public/confirm-email', tags=['Users'])
+@users_router.post('/api/v1/public/confirm-email', tags=['Users'])
 async def confirm_email(
-    token: str = Query(...),
-    session: SessionDep = Depends()
+    session: SessionDep,
+    token: str = Query(...)
 ):
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
