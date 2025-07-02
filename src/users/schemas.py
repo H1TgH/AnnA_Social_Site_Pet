@@ -7,11 +7,10 @@ from src.users.models import GenderEnum
 class RegistrationSchema(BaseModel):
     email: str
     password: str
-    confirmation_password: str
     name: str
     surname: str
     birthday: date
-    gender: GenderEnum | None
+    gender: GenderEnum | None = None
 
 class LoginSchema(BaseModel):
     email: str
