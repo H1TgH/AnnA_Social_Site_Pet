@@ -7,8 +7,8 @@ from sqlalchemy.exc import IntegrityError
 
 from src.database import SessionDep
 from src.users.models import UserModel
-from src.users.schemas import RegistrationSchema
-from src.users.utils import hash_password, create_access_token
+from src.users.schemas import RegistrationSchema, LoginSchema
+from src.users.utils import hash_password, create_access_token, verify_password
 from src.users.utils import SECRET_KEY, ALGORITHM
 from src.email_service.utils import send_confirmation_email
 
@@ -48,7 +48,7 @@ async def register_user(
 
     return {'message': 'Registration successful. Please confirm your email.'}
 
-@users_router.post('/api/v1/public/confirm-email', tags=['Users'])
+@users_router.get('/api/v1/public/confirm-email', tags=['Users'])
 async def confirm_email(
     session: SessionDep,
     token: str = Query(...)
@@ -74,3 +74,27 @@ async def confirm_email(
     await session.commit()
 
     return {'message': 'Email successfully confirmed'}
+
+@users_router.post('/api/v1/public/login', tags=['Users'])
+async def login_user(
+    credentials: LoginSchema,
+    session: SessionDep
+):
+    result = await session.execute(select(UserModel).where(UserModel.email == credentials.email))
+    user: UserModel | None = result.scalar_one_or_none()
+
+    if user is None or not verify_password(credentials.password, user.password):
+        raise HTTPException(status_code=401, detail='Invalid email or password')
+
+    if not user.is_email_confirmed:
+        raise HTTPException(status_code=403, detail='Please confirm your email first')
+
+    token = create_access_token(
+        {'sub': str(user.id)},
+        expires_delta=timedelta(days=1)
+    )
+
+    return {
+        'access_token': token, 
+        'token_type': 'bearer'
+    }
