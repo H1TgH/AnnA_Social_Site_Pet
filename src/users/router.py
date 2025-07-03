@@ -150,7 +150,7 @@ async def send_reset_password_url(
         )
     
     token = create_access_token(
-        {'sub': str(user.id)},
+        {'sub': str(result.id)},
         expires_delta=timedelta(minutes=20)
     )
 
@@ -159,11 +159,11 @@ async def send_reset_password_url(
 
     message = EmailMessage()
     message['From'] = os.getenv('SMTP_FROM', 'no-reply@example.com')
-    message['To'] = user.email
+    message['To'] = result.email
     message['Subject'] = 'Reset your password'
 
     message.set_content(
-        f'Hello, {user.name}!\n\n'
+        f'Hello, {result.name}!\n\n'
         f'Please reset your password by clicking the link below:\n\n'
         f'{reset_url}\n\n'
         f'This link will expire in 20 minutes.\n'
@@ -178,7 +178,7 @@ async def send_reset_password_url(
         start_tls=True
     )
 
-@users_router.post('api/v1/users/create-password', tags=['Users'])
+@users_router.post('/api/v1/users/update-password', tags=['Users'])
 async def create_new_password(
     new_password: PasswordResetSchema,
     session: SessionDep,
@@ -219,4 +219,3 @@ async def create_new_password(
     )
 
     await session.commit()
-    
