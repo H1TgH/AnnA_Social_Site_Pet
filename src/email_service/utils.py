@@ -1,7 +1,8 @@
-from aiosmtplib import send
 from datetime import timedelta
 import os
 from email.message import EmailMessage
+
+from aiosmtplib import send
 
 from src.users.utils import create_access_token
 from src.users.models import UserModel

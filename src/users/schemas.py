@@ -19,3 +19,9 @@ class LoginSchema(BaseModel):
 class TokenSchema(BaseModel):
     access_token: str
     token_type: str = 'bearer'
+
+class PasswordResetSendEmailSchema(BaseModel):
+    email: str
+
+class PasswordResetSchema(BaseModel):
+    new_password: str
