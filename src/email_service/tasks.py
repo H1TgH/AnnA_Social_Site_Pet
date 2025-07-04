@@ -4,11 +4,11 @@ from email.message import EmailMessage
 
 import smtplib
 
-from src.celery_worker.celery_app import celery_app
+from src.celery_worker.app import celery_app
 from src.users.utils import create_access_token
 
 
-@celery_app.task
+@celery_app.task(name='src.email_service.tasks.send_confirmation_email_task')
 def send_confirmation_email_task(user_id: str, email: str, name: str):
     token = create_access_token(
         {'sub': str(user_id)},
@@ -35,7 +35,7 @@ def send_confirmation_email_task(user_id: str, email: str, name: str):
         smtp.login(os.getenv('SMTP_USER'), os.getenv('SMTP_PASSWORD'))
         smtp.send_message(message)
 
-@celery_app.task
+@celery_app.task(name='src.email_service.tasks.send_password_reset_email_task')
 def send_password_reset_email_task(user_id: str, email: str, name: str):
     token = create_access_token(
         {'sub': str(user_id)},
