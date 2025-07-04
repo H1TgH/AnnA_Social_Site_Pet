@@ -11,3 +11,5 @@ gunicorn
 python-dotenv
 python-jose[cryptography]
 aiosmtplib
+celery
+redis
