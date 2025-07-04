@@ -13,7 +13,7 @@ from src.users.models import UserModel
 from src.users.schemas import RegistrationSchema, LoginSchema, PasswordResetSendEmailSchema, PasswordResetSchema
 from src.users.utils import hash_password, create_access_token, verify_password
 from src.users.utils import SECRET_KEY, ALGORITHM
-from src.email_service.utils import send_confirmation_email
+from src.email_service.tasks import send_confirmation_email_task, send_password_reset_email_task
 
 
 users_router = APIRouter()
@@ -56,7 +56,7 @@ async def register_user(
 
     token = create_access_token({'sub': str(user.id)}, expires_delta=timedelta(hours=2))
 
-    await send_confirmation_email(user)
+    send_confirmation_email_task.delay(user.id, user.email, user.name)
 
     return {'message': 'Registration successful. Please confirm your email.'}
 
@@ -137,46 +137,21 @@ async def send_reset_password_url(
     email: PasswordResetSendEmailSchema,
     session: SessionDep
 ):
-    user = await session.execute(
+    user_result = await session.execute(
         select(UserModel)
         .where(email.email == UserModel.email)
     )
-    result = user.scalar_one_or_none()
+    user = user_result.scalar_one_or_none()
 
-    if result is None:
-        return HTTPException(
+    if user is None:
+        raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail='User with this email not found'
         )
-    
-    token = create_access_token(
-        {'sub': str(result.id)},
-        expires_delta=timedelta(minutes=20)
-    )
 
-    frontend_base_url = os.getenv('FRONTEND_URL', 'http://localhost:3000')
-    reset_url = f'{frontend_base_url}/password-reset?token={token}'
+    send_password_reset_email_task.delay(str(user.id), user.email, user.name)
 
-    message = EmailMessage()
-    message['From'] = os.getenv('SMTP_FROM', 'no-reply@example.com')
-    message['To'] = result.email
-    message['Subject'] = 'Reset your password'
-
-    message.set_content(
-        f'Hello, {result.name}!\n\n'
-        f'Please reset your password by clicking the link below:\n\n'
-        f'{reset_url}\n\n'
-        f'This link will expire in 20 minutes.\n'
-    )
-
-    await send(
-        message,
-        hostname=os.getenv('SMTP_HOST', 'smtp.gmail.com'),
-        port=int(os.getenv('SMTP_PORT', 587)),
-        username=os.getenv('SMTP_USER'),
-        password=os.getenv('SMTP_PASSWORD'),
-        start_tls=True
-    )
+    return {"message": "Password reset email sent if the email exists."}
 
 @users_router.post('/api/v1/users/update-password', tags=['Users'])
 async def create_new_password(
