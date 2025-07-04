@@ -11,8 +11,17 @@ services:
     build:
       context: .
     container_name: celery_worker
-    command: celery -A src.celery_worker.celery_app worker --loglevel=info
+    command: celery -A src.celery_worker.celery_app worker --loglevel=info --queues=email
+    volumes:
+      - .:/app
+    working_dir: /app
     depends_on:
       - redis
     environment:
       - REDIS_URL=redis://redis:6379/0
+      - SMTP_HOST
+      - SMTP_PORT
+      - SMTP_USER
+      - SMTP_PASSWORD
+      - SMTP_FROM
+      - FRONTEND_URL
