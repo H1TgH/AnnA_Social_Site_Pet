@@ -3,7 +3,7 @@ from email.message import EmailMessage
 import os
 
 from aiosmtplib import send
-from fastapi import APIRouter, HTTPException, status, Depends, Query, Response
+from fastapi import APIRouter, Cookie, HTTPException, status, Depends, Query, Response
 from jose import JWTError, jwt
 from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError
@@ -103,7 +103,7 @@ async def confirm_email(
 async def login_user(
     credentials: LoginSchema,
     session: SessionDep,
-    responce: Response
+    response: Response
 ):
     result = await session.execute(
         select(UserModel)
@@ -136,22 +136,39 @@ async def login_user(
         expires_delta=timedelta(days=7)
     )
 
-    responce.set_cookie(
+    response.set_cookie(
         key='access_token',
         value=access_token,
         httponly=True,
         max_age=30*60,
         path='/'
     )
-    responce.set_cookie(
+    response.set_cookie(
         key='refresh_token',
         value=refresh_token,
         httponly=True,
-        max_age=30*60*60*24,
+        max_age=60*60*24*7,
         path='/'
     )
 
     return {'message': 'Login successful'}
+
+@users_router.post('/refresh_token', tags=['auth'])
+async def refresh_token(refresh_token: str = Cookie(...)):
+    try:
+        payload = jwt.decode(refresh_token, SECRET_KEY, algorithms=[ALGORITHM])
+        if payload.get('type') != 'refresh':
+            raise HTTPException(status_code=401, detail='Invalid token type')
+        
+        user_id = payload.get('sub')
+        if not user_id:
+            raise HTTPException(status_code=401, detail='Invalid token payload')
+
+        new_access_token = create_access_token({'sub': user_id}, expires_delta=timedelta(minutes=15))
+        return {'access_token': new_access_token}
+
+    except JWTError:
+        raise HTTPException(status_code=401, detail='Invalid or expired refresh token')
 
 @users_router.post('/api/v1/users/password-reset', tags=['Users'])
 async def send_reset_password_url(
@@ -172,7 +189,7 @@ async def send_reset_password_url(
 
     send_password_reset_email_task.delay(str(user.id), user.email, user.name)
 
-    return {"message": "Password reset email sent if the email exists."}
+    return {'message': 'Password reset email sent if the email exists.'}
 
 @users_router.post('/api/v1/users/update-password', tags=['Users'])
 async def create_new_password(
@@ -193,7 +210,7 @@ async def create_new_password(
             status_code=400, 
             detail='Invalid or expired token'
         )
-    
+
     result = await session.execute(
         select(UserModel)
         .where(UserModel.id == user_id)
@@ -205,7 +222,7 @@ async def create_new_password(
             status_code=400, 
             detail='User not found'
         )
-    
+
     password = hash_password(new_password.new_password)
 
     await session.execute(
