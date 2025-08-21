@@ -11,8 +11,6 @@ from src.users.models import UserModel, RoleEnum
 
 
 SECRET_KEY = os.getenv('SECRET_KEY')
-ACCESS_TOKEN_EXPIRE = os.getenv('ACCESS_TOKEN_EXPIRE')
-REFRESH_TOKEN_EXPIRE = os.getenv('REFRESH_TOKEN_EXPIRE')
 ALGORITHM = 'HS256'
 
 pwd_context = CryptContext(schemes=['bcrypt'], deprecated='auto')
@@ -28,13 +26,13 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 
 def create_access_token(data: dict, expires_delta: timedelta | None = None) -> str:
     to_encode = data.copy()
-    expire = datetime.now(timezone.utc) + (expires_delta or timedelta(minutes=ACCESS_TOKEN_EXPIRE))
+    expire = datetime.now(timezone.utc) + expires_delta
     to_encode.update({'exp': expire})
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
 def create_refresh_token(data: dict, expires_delta: timedelta | None = None) -> str:
     to_encode = data.copy()
-    expire = datetime.now(timezone.utc) + (expires_delta or timedelta(minutes=REFRESH_TOKEN_EXPIRE))
+    expire = datetime.now(timezone.utc) + expires_delta
     to_encode.update({
         'type': 'refresh',
         'exp': expire

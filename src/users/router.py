@@ -3,7 +3,7 @@ from email.message import EmailMessage
 import os
 
 from aiosmtplib import send
-from fastapi import APIRouter, HTTPException, status, Depends, Query
+from fastapi import APIRouter, HTTPException, status, Depends, Query, Response
 from jose import JWTError, jwt
 from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError
@@ -11,7 +11,7 @@ from sqlalchemy.exc import IntegrityError
 from src.database import SessionDep
 from src.users.models import UserModel
 from src.users.schemas import RegistrationSchema, LoginSchema, PasswordResetSendEmailSchema, PasswordResetSchema
-from src.users.utils import hash_password, create_access_token, verify_password
+from src.users.utils import hash_password, create_access_token, create_refresh_token, verify_password
 from src.users.utils import SECRET_KEY, ALGORITHM
 from src.email_service.tasks import send_confirmation_email_task, send_password_reset_email_task
 
@@ -102,7 +102,8 @@ async def confirm_email(
 @users_router.post('/api/v1/public/login', tags=['Users'])
 async def login_user(
     credentials: LoginSchema,
-    session: SessionDep
+    session: SessionDep,
+    responce: Response
 ):
     result = await session.execute(
         select(UserModel)
@@ -122,15 +123,35 @@ async def login_user(
             detail='Please confirm your email first'
         )
 
-    token = create_access_token(
-        {'sub': str(user.id)},
-        expires_delta=timedelta(days=1)
+    access_token = create_access_token(
+        {
+            'sub': str(user.id)
+        },
+        expires_delta=timedelta(minutes=30)
+    )
+    refresh_token = create_refresh_token(
+        {
+            'sub': str(user.id),
+        },
+        expires_delta=timedelta(days=7)
     )
 
-    return {
-        'access_token': token, 
-        'token_type': 'bearer'
-    }
+    responce.set_cookie(
+        key='access_token',
+        value=access_token,
+        httponly=True,
+        max_age=30*60,
+        path='/'
+    )
+    responce.set_cookie(
+        key='refresh_token',
+        value=refresh_token,
+        httponly=True,
+        max_age=30*60*60*24,
+        path='/'
+    )
+
+    return {'message': 'Login successful'}
 
 @users_router.post('/api/v1/users/password-reset', tags=['Users'])
 async def send_reset_password_url(
