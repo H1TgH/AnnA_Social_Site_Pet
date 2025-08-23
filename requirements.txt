@@ -13,3 +13,4 @@ python-jose[cryptography]
 aiosmtplib
 celery
 redis
+minio==7.2.16
