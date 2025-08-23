@@ -325,3 +325,10 @@ async def get_user_by_id(
         'last_visit': user.last_visit,
         'avatar_url': avatar_url
     }
+
+@users_router.post('/api/v1/users/logout')
+async def logout(response: Response):
+    response.delete_cookie(key='access_token', path='/')
+    response.delete_cookie(key='refresh_token', path='/')
+
+    return {'message': 'Logged out successfully'}
