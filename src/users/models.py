@@ -101,3 +101,9 @@ class UserModel(Base):
         server_default=func.now(),
         onupdate=func.now()
     )
+
+    avatar_url: Mapped[str] = mapped_column(
+        String,
+        nullable=True
+    )
+    
