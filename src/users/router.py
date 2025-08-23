@@ -9,9 +9,10 @@ from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError
 
 from src.database import SessionDep
+from src.minio import minio_client
 from src.users.models import UserModel
 from src.users.schemas import RegistrationSchema, LoginSchema, PasswordResetSendEmailSchema, PasswordResetSchema
-from src.users.utils import hash_password, create_access_token, create_refresh_token, verify_password
+from src.users.utils import hash_password, create_access_token, create_refresh_token, verify_password, get_current_user
 from src.users.utils import SECRET_KEY, ALGORITHM
 from src.email_service.tasks import send_confirmation_email_task, send_password_reset_email_task
 
@@ -232,3 +233,56 @@ async def create_new_password(
     )
 
     await session.commit()
+
+@users_router.get('/api/v1/users/avatar/upload-url')
+async def get_avatar_upload_url(
+    user: UserModel = Depends(get_current_user)
+):
+    object_name = f'avatars/{user.id}.png'
+    url = minio_client.presigned_put_object(
+        bucket_name = 'avatars',
+        object_name=object_name,
+        expires=timedelta(minutes=10)
+    )
+
+    return {
+        'upload_url': url,
+        'object_name': object_name
+    }
+
+@users_router.post('/api/v1/users/avatar')
+async def save_avatar(
+    object_name: str,
+    session: SessionDep,
+    user: UserModel = Depends(get_current_user)
+):
+    user.avatar_url = object_name
+    await session.commit()
+    
+    return {'message': 'Avatar saved'}
+
+@users_router.get('/api/v1/users/me')
+async def get_current_user_profile(
+    user: UserModel = Depends(get_current_user)
+):
+    avatar_url = None
+    if user.avatar_url:
+        avatar_url = minio_client.presigned_get_object(
+            bucket_name='avatars',
+            object_name=user.avatar_url,
+            expires=timedelta(minutes=10)
+        )
+
+    return {
+        'id': str(user.id),
+        'email': user.email,
+        'name': user.name,
+        'surname': user.surname,
+        'birthday': user.birthday,
+        'gender': user.gender,
+        'role': user.role,
+        'is_email_confirmed': user.is_email_confirmed,
+        'is_online': user.is_online,
+        'last_visit': user.last_visit,
+        'avatar_url': avatar_url
+    }
