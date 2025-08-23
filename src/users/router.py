@@ -11,7 +11,7 @@ from sqlalchemy.exc import IntegrityError
 from src.database import SessionDep
 from src.minio import minio_client
 from src.users.models import UserModel
-from src.users.schemas import RegistrationSchema, LoginSchema, PasswordResetSendEmailSchema, PasswordResetSchema
+from src.users.schemas import RegistrationSchema, LoginSchema, PasswordResetSendEmailSchema, PasswordResetSchema, AvatarUpdateSchema
 from src.users.utils import hash_password, create_access_token, create_refresh_token, verify_password, get_current_user
 from src.users.utils import SECRET_KEY, ALGORITHM
 from src.email_service.tasks import send_confirmation_email_task, send_password_reset_email_task
@@ -252,11 +252,11 @@ async def get_avatar_upload_url(
 
 @users_router.post('/api/v1/users/avatar')
 async def save_avatar(
-    object_name: str,
+    data: AvatarUpdateSchema,
     session: SessionDep,
     user: UserModel = Depends(get_current_user)
 ):
-    user.avatar_url = object_name
+    user.avatar_url = data.object_name
     await session.commit()
     
     return {'message': 'Avatar saved'}
@@ -273,6 +273,45 @@ async def get_current_user_profile(
             expires=timedelta(minutes=10)
         )
 
+    return {
+        'id': str(user.id),
+        'email': user.email,
+        'name': user.name,
+        'surname': user.surname,
+        'birthday': user.birthday,
+        'gender': user.gender,
+        'role': user.role,
+        'is_email_confirmed': user.is_email_confirmed,
+        'is_online': user.is_online,
+        'last_visit': user.last_visit,
+        'avatar_url': avatar_url
+    }
+
+@users_router.get('/api/v1/users/{user_id}')
+async def get_user_by_id(
+    user_id: str,
+    session: SessionDep
+):
+    user_result = await session.execute(
+        select(UserModel)
+        .where(UserModel.id==user_id)
+    )
+    user = user_result.scalar_one_or_none()
+
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail='User not found'
+        )
+    
+    avatar_url = None
+    if user.avatar_url:
+        avatar_url = minio_client.presigned_get_object(
+            bucket_name='avatars',
+            object_name=user.avatar_url,
+            expires=timedelta(minutes=10)
+        )
+    
     return {
         'id': str(user.id),
         'email': user.email,
