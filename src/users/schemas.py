@@ -25,3 +25,7 @@ class PasswordResetSendEmailSchema(BaseModel):
 
 class PasswordResetSchema(BaseModel):
     new_password: str
+
+class AvatarUpdateSchema(BaseModel):
+    object_name: str
+    
