@@ -11,7 +11,7 @@ from sqlalchemy.exc import IntegrityError
 from src.database import SessionDep
 from src.minio import minio_client
 from src.users.models import UserModel
-from src.users.schemas import RegistrationSchema, LoginSchema, PasswordResetSendEmailSchema, PasswordResetSchema, AvatarUpdateSchema
+from src.users.schemas import RegistrationSchema, LoginSchema, PasswordResetSendEmailSchema, PasswordResetSchema, AvatarUpdateSchema, UserDataUpdateSchema
 from src.users.utils import hash_password, create_access_token, create_refresh_token, verify_password, get_current_user
 from src.users.utils import SECRET_KEY, ALGORITHM
 from src.email_service.tasks import send_confirmation_email_task, send_password_reset_email_task
@@ -275,15 +275,12 @@ async def get_current_user_profile(
 
     return {
         'id': str(user.id),
-        'email': user.email,
         'name': user.name,
         'surname': user.surname,
+        'status': user.status,
         'birthday': user.birthday,
         'gender': user.gender,
         'role': user.role,
-        'is_email_confirmed': user.is_email_confirmed,
-        'is_online': user.is_online,
-        'last_visit': user.last_visit,
         'avatar_url': avatar_url
     }
 
@@ -314,15 +311,12 @@ async def get_user_by_id(
     
     return {
         'id': str(user.id),
-        'email': user.email,
         'name': user.name,
         'surname': user.surname,
+        'status': user.status,
         'birthday': user.birthday,
         'gender': user.gender,
         'role': user.role,
-        'is_email_confirmed': user.is_email_confirmed,
-        'is_online': user.is_online,
-        'last_visit': user.last_visit,
         'avatar_url': avatar_url
     }
 
@@ -332,3 +326,37 @@ async def logout(response: Response):
     response.delete_cookie(key='refresh_token', path='/')
 
     return {'message': 'Logged out successfully'}
+
+@users_router.patch('/api/v1/users/me')
+async def update_user_data(
+    data: UserDataUpdateSchema,
+    session: SessionDep,
+    user: UserModel = Depends(get_current_user)
+):
+    update_data = data.model_dump(exclude_unset=True)
+
+    if not update_data:
+        raise HTTPException(
+            status_code=400,
+            detail='No data provided for update'
+        )
+
+    result = await session.execute(
+        update(UserModel)
+        .where(UserModel.id == user.id)
+        .values(**update_data)
+        .returning(UserModel)
+    )
+    updated_user = result.scalar_one()
+    await session.commit()
+
+    return {
+        'id': str(updated_user.id),
+        'name': updated_user.name,
+        'surname': updated_user.surname,
+        'status': updated_user.status,
+        'birthday': updated_user.birthday,
+        'gender': updated_user.gender,
+        'role': updated_user.role,
+        'avatar_url': updated_user.avatar_url
+    }
