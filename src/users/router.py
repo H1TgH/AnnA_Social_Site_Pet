@@ -258,8 +258,14 @@ async def save_avatar(
 ):
     user.avatar_url = data.object_name
     await session.commit()
+
+    avatar_url = minio_client.presigned_get_object(
+        bucket_name='avatars',
+        object_name=user.avatar_url,
+        expires=timedelta(minutes=10)
+    )
     
-    return {'message': 'Avatar saved'}
+    return {'avatar_url': avatar_url}
 
 @users_router.get('/api/v1/users/me')
 async def get_current_user_profile(
