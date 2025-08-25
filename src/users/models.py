@@ -107,3 +107,7 @@ class UserModel(Base):
         nullable=True
     )
     
+    status: Mapped[str] = mapped_column(
+        String(200),
+        nullable=True
+    )
