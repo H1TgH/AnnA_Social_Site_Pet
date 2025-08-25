@@ -1,5 +1,7 @@
-from pydantic import BaseModel
 from datetime import date
+from typing import Optional
+
+from pydantic import BaseModel
 
 from src.users.models import GenderEnum
 
@@ -28,4 +30,15 @@ class PasswordResetSchema(BaseModel):
 
 class AvatarUpdateSchema(BaseModel):
     object_name: str
-    
+
+class UserDataUpdateSchema(BaseModel):
+    name: Optional[str] = None
+    surname: Optional[str] = None
+    status: Optional[str] = None
+    birthday: Optional[date] = None
+    gender: Optional[str] = None
+
+    class Config:
+        json_encoders = {
+            date: lambda date: date.isoformat()
+        }
