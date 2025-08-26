@@ -2,7 +2,7 @@ from datetime import datetime
 from uuid import uuid4, UUID
 
 from sqlalchemy import ForeignKey, String, Text, SmallInteger, DateTime, func, CheckConstraint, UniqueConstraint, Index
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 
 from src.database import Base
@@ -37,8 +37,12 @@ class PostsModel(Base):
         DateTime(timezone=True),
         nullable=False,
         server_default=func.now(),
-        server_onupdate=func.now(),
+        onupdate=func.now(),
     )
+
+    images = relationship('PostImagesModel', back_populates='post')
+    likes = relationship('PostLikesModel', back_populates='post')
+    comments = relationship('PostCommentsModel', back_populates='post')
 
     __table_args__ = (
         Index('ix_posts_user_created', 'user_id', 'created_at'),
@@ -71,6 +75,8 @@ class PostImagesModel(Base):
         SmallInteger,
         nullable=False,
     )
+
+    post = relationship('PostsModel', back_populates='images')
 
     __table_args__ = (
         UniqueConstraint('post_id', 'position', name='uq_post_images_post_position'),
@@ -108,6 +114,8 @@ class PostLikesModel(Base):
         nullable=False,
         server_default=func.now(),
     )
+
+    post = relationship('PostsModel', back_populates='likes')
 
     __table_args__ = (
         UniqueConstraint('post_id', 'user_id', name='uq_post_likes_post_user'),
@@ -153,6 +161,11 @@ class PostCommentsModel(Base):
         nullable=False,
         server_default=func.now(),
     )
+
+    post = relationship('PostsModel', back_populates='comments')
+    replies = relationship('PostCommentsModel', back_populates='parent', remote_side=[id])
+    parent = relationship('PostCommentsModel', back_populates='replies', remote_side=[id])
+
 
     __table_args__ = (
         Index('ix_post_comm_post_created', 'post_id', 'created_at'),
