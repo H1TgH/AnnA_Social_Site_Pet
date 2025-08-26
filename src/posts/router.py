@@ -1,17 +1,81 @@
-from uuid import UUID
-from datetime import datetime
+from uuid import UUID, uuid4
+from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Query, HTTPException, status, Depends
 from sqlalchemy import select, join, and_, desc
 from sqlalchemy.orm import selectinload
 
 from src.database import SessionDep
+from src.minio import minio_client
 from src.users.models import UserModel
 from src.posts.models import PostsModel, PostImagesModel, PostLikesModel, PostCommentsModel
 from src.users.utils import get_current_user
+from src.posts.schemas import PostCreationSchema
 
 
 posts_router = APIRouter()
+
+
+@posts_router.post('/api/v1/posts')
+async def create_post(
+    post_data: PostCreationSchema,
+    session: SessionDep,
+    user: UserModel = Depends(get_current_user)
+):
+    if post_data.images and len(post_data.images) > 10:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Maximum 10 images allowed per post"
+        )
+
+    new_post = PostsModel(
+        user_id=user.id,
+        text=post_data.text
+    )
+    session.add(new_post)
+    await session.flush()
+
+    images_with_url = []
+    if post_data.images:
+        for idx, obj_name in enumerate(post_data.images, start=1):
+            image = PostImagesModel(
+                post_id=new_post.id,
+                image_url=obj_name,
+                position=idx
+            )
+            session.add(image)
+
+            url = minio_client.presigned_get_object(
+                bucket_name='posts',
+                object_name=obj_name,
+                expires=timedelta(minutes=10)
+            )
+            images_with_url.append(url)
+
+    await session.commit()
+
+    return {
+        'post_id': str(new_post.id),
+        'text': new_post.text,
+        'images': images_with_url,
+        'created_at': new_post.created_at
+    }
+
+@posts_router.get('/api/v1/posts/upload-url')
+async def get_post_image_upload_url(
+    user: UserModel = Depends(get_current_user)
+):
+    object_name = f'posts/{uuid4()}.png'
+    url = minio_client.presigned_put_object(
+        bucket_name='posts',
+        object_name=object_name,
+        expires=timedelta(minutes=10)
+    )
+    return {
+        'upload_url': url,
+        'object_name': object_name
+    }
+    
 
 @posts_router.get('/api/v1/posts/{user_id}')
 async def get_user_posts(
