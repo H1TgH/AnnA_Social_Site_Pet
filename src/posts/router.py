@@ -2,7 +2,7 @@ from uuid import UUID, uuid4
 from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Query, HTTPException, status, Depends
-from sqlalchemy import select, desc, update
+from sqlalchemy import select, desc, update, delete
 from sqlalchemy.orm import selectinload
 
 from src.database import SessionDep
@@ -210,3 +210,40 @@ async def put_like(
     await session.commit()
 
     return {'detail': 'Post liked successfully'}
+
+@posts_router.delete('/api/v1/posts/like/{post_id}')
+async def remove_like(
+    session: SessionDep,
+    post_id: UUID,
+    user: UserModel = Depends(get_current_user) 
+):
+    post_result = await session.execute(
+        select(PostsModel).where(PostsModel.id == post_id)
+    )
+    post = post_result.scalar_one_or_none()
+    if not post:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail='Post not found'
+        )
+
+    like_result = await session.execute(
+        select(PostLikesModel).where(
+            PostLikesModel.post_id == post_id,
+            PostLikesModel.user_id == user.id
+        )
+    )
+    like = like_result.scalar_one_or_none()
+    if not like:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail='User has not liked this post'
+        )
+
+    await session.execute(
+        delete(PostLikesModel)
+        .where(PostLikesModel.id == like.id)
+    )
+    await session.commit()
+
+    return {'detail': 'Like removed'}
