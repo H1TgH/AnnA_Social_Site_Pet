@@ -300,3 +300,62 @@ async def create_comment(
         'parent_id': new_comment.parent_id,
         'created_at': new_comment.created_at
     }
+
+
+@posts_router.get('/api/v1/posts/comments/{post_id}')
+async def get_post_comments(
+    post_id: UUID,
+    session: SessionDep,
+    limit: int = Query(10, gt=0, le=50),
+    cursor: str | None = Query(None),
+    user: UserModel = Depends(get_current_user)
+):
+    post_result = await session.execute(
+        select(PostsModel).where(PostsModel.id == post_id)
+    )
+    post = post_result.scalar_one_or_none()
+    if not post:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail='Post not found'
+        )
+
+    query = select(PostCommentsModel).options(
+        selectinload(PostCommentsModel.replies)
+    ).where(
+        PostCommentsModel.post_id == post_id,
+        PostCommentsModel.parent_id == None
+    )
+
+    if cursor:
+        query = query.where(PostCommentsModel.created_at < cursor)
+
+    query = query.order_by(desc(PostCommentsModel.created_at)).limit(limit)
+
+    result = await session.execute(query)
+    comments = result.scalars().all()
+
+    response = []
+    for c in comments:
+        response.append({
+            'id': c.id,
+            'user_id': c.user_id,
+            'text': c.text,
+            'created_at': c.created_at,
+            'replies': [
+                {
+                    'id': r.id,
+                    'user_id': r.user_id,
+                    'text': r.text,
+                    'created_at': r.created_at
+                }
+                for r in sorted(c.replies, key=lambda x: x.created_at)
+            ]
+        })
+
+    next_cursor = comments[-1].created_at if comments else None
+
+    return {
+        'comments': response,
+        'next_cursor': next_cursor
+    }
