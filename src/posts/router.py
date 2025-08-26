@@ -2,7 +2,7 @@ from uuid import UUID, uuid4
 from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Query, HTTPException, status, Depends
-from sqlalchemy import select, join, and_, desc
+from sqlalchemy import select, desc, update
 from sqlalchemy.orm import selectinload
 
 from src.database import SessionDep
@@ -25,7 +25,7 @@ async def create_post(
     if post_data.images and len(post_data.images) > 10:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Maximum 10 images allowed per post"
+            detail='Maximum 10 images allowed per post'
         )
 
     new_post = PostsModel(
@@ -173,3 +173,40 @@ async def get_user_photos_feed(
         ],
         'next_cursor': next_cursor
     }
+
+@posts_router.post('/api/v1/posts/like/{post_id}')
+async def put_like(
+    session: SessionDep,
+    post_id: UUID,
+    user: UserModel = Depends(get_current_user)
+):
+    post_result = await session.execute(
+        select(PostsModel)
+        .where(PostsModel.id==post_id)
+    )
+    post = post_result.scalar_one_or_none()
+
+    if post is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail='Post not found'
+        )
+    
+    like_result = await session.execute(
+        select(PostLikesModel)
+        .where(PostLikesModel.post_id==post_id)
+        .where(PostLikesModel.user_id==user.id)
+    )
+    existing_like = like_result.scalar_one_or_none()
+
+    if existing_like:
+        raise(HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail='User already liked this post'
+        ))
+    
+    new_like = PostLikesModel(post_id=post_id, user_id=user.id)
+    session.add(new_like)
+    await session.commit()
+
+    return {'detail': 'Post liked successfully'}
