@@ -10,7 +10,7 @@ from src.minio import minio_client
 from src.users.models import UserModel
 from src.posts.models import PostsModel, PostImagesModel, PostLikesModel, PostCommentsModel
 from src.users.utils import get_current_user
-from src.posts.schemas import PostCreationSchema
+from src.posts.schemas import PostCreationSchema, CommentCreationSchema
 
 
 posts_router = APIRouter()
@@ -91,7 +91,7 @@ async def get_user_posts(
     user = user_result.scalar_one_or_none()
     if user is None:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
+            status_code=status.HTTP_400_BAD_REQUEST,
             detail='User not found'
         )
 
@@ -137,7 +137,7 @@ async def get_user_photos_feed(
 
     if user is None:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
+            status_code=status.HTTP_400_BAD_REQUEST,
             detail='User not found'
         )
 
@@ -223,7 +223,7 @@ async def remove_like(
     post = post_result.scalar_one_or_none()
     if not post:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
+            status_code=status.HTTP_400_BAD_REQUEST,
             detail='Post not found'
         )
 
@@ -247,3 +247,56 @@ async def remove_like(
     await session.commit()
 
     return {'detail': 'Like removed'}
+
+@posts_router.post('/api/v1/posts/comment/{post_id}')
+async def create_comment(
+    post_id: str,
+    comment_data: CommentCreationSchema,
+    session: SessionDep,
+    user: UserModel = Depends(get_current_user)
+):
+    post_result = await session.execute(
+        select(PostsModel)
+        .where(PostsModel.id == post_id)
+    )
+    post = post_result.scalar_one_or_none()
+    
+    if not post:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail='Post not found'
+        )
+
+    if comment_data.parent_id:
+        parent_result = await session.execute(
+            select(PostCommentsModel)
+            .where(PostCommentsModel.id == comment_data.parent_id)
+        )
+        parent_comment = parent_result.scalar_one_or_none()
+        if not parent_comment:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail='Parent comment not found'
+            )
+    else:
+        parent_comment = None
+
+    new_comment = PostCommentsModel(
+        post_id=post.id,
+        user_id=user.id,
+        text=comment_data.text,
+        parent_id=comment_data.parent_id
+    )
+
+    session.add(new_comment)
+    await session.commit()
+    await session.refresh(new_comment)
+
+    return {
+        'id': str(new_comment.id),
+        'post_id': str(post.id),
+        'user_id': str(user.id),
+        'text': new_comment.text,
+        'parent_id': new_comment.parent_id,
+        'created_at': new_comment.created_at
+    }
