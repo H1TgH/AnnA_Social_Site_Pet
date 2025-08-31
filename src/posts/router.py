@@ -82,7 +82,7 @@ async def get_user_posts(
     user_id: UUID,
     session: SessionDep,
     limit: int = Query(10, gt=0, le=50),
-    cursor: datetime | None = Query(...),
+    cursor: datetime | None = Query(None),
     user: UserModel = Depends(get_current_user)
 ):
     user_result = await session.execute(
@@ -316,7 +316,7 @@ async def get_post_comments(
     post = post_result.scalar_one_or_none()
     if not post:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
+            status_code=status.HTTP_400_BAD_REQUEST,
             detail='Post not found'
         )
 
@@ -336,12 +336,12 @@ async def get_post_comments(
     comments = result.scalars().all()
 
     response = []
-    for c in comments:
+    for comment in comments:
         response.append({
-            'id': c.id,
-            'user_id': c.user_id,
-            'text': c.text,
-            'created_at': c.created_at,
+            'id': comment.id,
+            'user_id': comment.user_id,
+            'text': comment.text,
+            'created_at': comment.created_at,
             'replies': [
                 {
                     'id': r.id,
@@ -349,7 +349,7 @@ async def get_post_comments(
                     'text': r.text,
                     'created_at': r.created_at
                 }
-                for r in sorted(c.replies, key=lambda x: x.created_at)
+                for r in sorted(comment.replies, key=lambda x: x.created_at)
             ]
         })
 

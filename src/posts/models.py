@@ -164,7 +164,7 @@ class PostCommentsModel(Base):
 
     post = relationship('PostsModel', back_populates='comments')
     replies = relationship('PostCommentsModel', back_populates='parent', remote_side=[id])
-    parent = relationship('PostCommentsModel', back_populates='replies', remote_side=[id])
+    parent = relationship('PostCommentsModel', back_populates='replies')
 
 
     __table_args__ = (
