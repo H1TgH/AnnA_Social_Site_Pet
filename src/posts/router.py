@@ -65,17 +65,16 @@ async def create_post(
 async def get_post_image_upload_url(
     user: UserModel = Depends(get_current_user)
 ):
-    object_name = f'posts/{uuid4()}.png'
+    object_name = f'{uuid4()}.png'
     url = minio_client.presigned_put_object(
         bucket_name='posts',
-        object_name=object_name,
+        object_name=f'posts/{object_name}',
         expires=timedelta(minutes=10)
     )
     return {
         'upload_url': url,
-        'object_name': object_name
-    }
-    
+        'object_name': f'posts/{object_name}'
+    } 
 
 @posts_router.get('/api/v1/posts/{user_id}')
 async def get_user_posts(
@@ -109,12 +108,21 @@ async def get_user_posts(
 
     response = []
     for post in posts:
+        images_with_url = []
+        for img in post.images:
+            url = minio_client.presigned_get_object(
+                bucket_name='posts',
+                object_name=img.image_url,
+                expires=timedelta(minutes=10)
+            )
+            images_with_url.append(url)
+
         response.append({
             'id': post.id,
             'text': post.text,
             'created_at': post.created_at,
             'updated_at': post.updated_at,
-            'images': [img.image_url for img in post.images],
+            'images': images_with_url,
             'likes_count': len(post.likes),
             'comments_count': len(post.comments)
         })
@@ -300,7 +308,6 @@ async def create_comment(
         'parent_id': new_comment.parent_id,
         'created_at': new_comment.created_at
     }
-
 
 @posts_router.get('/api/v1/posts/comments/{post_id}')
 async def get_post_comments(
