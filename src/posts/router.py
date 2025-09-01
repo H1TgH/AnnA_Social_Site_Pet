@@ -2,7 +2,7 @@ from uuid import UUID, uuid4
 from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Query, HTTPException, status, Depends
-from sqlalchemy import select, desc, update, delete
+from sqlalchemy import select, desc, update, delete, func
 from sqlalchemy.orm import selectinload
 
 from src.database import SessionDep
@@ -96,7 +96,6 @@ async def get_user_posts(
 
     query = select(PostsModel).options(
         selectinload(PostsModel.images),
-        selectinload(PostsModel.likes),
         selectinload(PostsModel.comments)
     ).where(PostsModel.user_id == user_id)
     if cursor:
@@ -106,25 +105,41 @@ async def get_user_posts(
     posts_result = await session.execute(query)
     posts = posts_result.scalars().all()
 
+    post_ids = [post.id for post in posts]
+    likes_result = await session.execute(
+        select(PostLikesModel.post_id).where(
+            PostLikesModel.post_id.in_(post_ids),
+            PostLikesModel.user_id == user.id
+        )
+    )
+    liked_post_ids = {post_id for post_id, in likes_result.all()}
+
     response = []
     for post in posts:
-        images_with_url = []
-        for img in post.images:
-            url = minio_client.presigned_get_object(
+        images_with_url = [
+            minio_client.presigned_get_object(
                 bucket_name='posts',
                 object_name=img.image_url,
                 expires=timedelta(minutes=10)
             )
-            images_with_url.append(url)
+            for img in post.images
+        ]
 
+        is_liked = str(post.id) in liked_post_ids
+
+        likes_count = await session.scalar(
+            select(func.count(PostLikesModel.id)).where(PostLikesModel.post_id == post.id)
+        )
+        
         response.append({
             'id': post.id,
             'text': post.text,
             'created_at': post.created_at,
             'updated_at': post.updated_at,
             'images': images_with_url,
-            'likes_count': len(post.likes),
-            'comments_count': len(post.comments)
+            'likes_count': likes_count,
+            'comments_count': len(post.comments),
+            'is_liked': is_liked
         })
 
     return {'posts': response}
