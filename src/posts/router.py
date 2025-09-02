@@ -125,7 +125,7 @@ async def get_user_posts(
             for img in post.images
         ]
 
-        is_liked = str(post.id) in liked_post_ids
+        is_liked = post.id in liked_post_ids
 
         likes_count = await session.scalar(
             select(func.count(PostLikesModel.id)).where(PostLikesModel.post_id == post.id)
@@ -371,7 +371,7 @@ async def get_post_comments(
                     'text': r.text,
                     'created_at': r.created_at
                 }
-                for r in sorted(comment.replies, key=lambda x: x.created_at)
+                for r in sorted(comment.replies or [], key=lambda x: x.created_at)
             ]
         })
 
