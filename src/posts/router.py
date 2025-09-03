@@ -100,10 +100,16 @@ async def get_user_posts(
     ).where(PostsModel.user_id == user_id)
     if cursor:
         query = query.where(PostsModel.created_at <= cursor)
-    query = query.order_by(PostsModel.created_at.desc()).limit(limit)
+    query = query.order_by(PostsModel.created_at.desc()).limit(limit + 1)
 
     posts_result = await session.execute(query)
     posts = posts_result.scalars().all()
+
+    if len(posts) > limit:
+        next_cursor = posts[-1].created_at
+        posts = posts[:-1]
+    else:
+        next_cursor = None
 
     post_ids = [post.id for post in posts]
     likes_result = await session.execute(
@@ -142,7 +148,11 @@ async def get_user_posts(
             'is_liked': is_liked
         })
 
-    return {'posts': response}
+    return {
+        'posts': response,
+        'next_cursor': next_cursor,
+        'has_more': bool(next_cursor)
+    }
 
 @posts_router.get('/api/v1/posts/photos/{user_id}')
 async def get_user_photos_feed(
