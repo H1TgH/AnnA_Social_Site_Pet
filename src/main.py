@@ -5,6 +5,8 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from src.users.router import users_router
 from src.posts.router import posts_router
+from src.ws.presence import presence_ws_router
+from src.ws.router import ws_router
 
 
 app = FastAPI()
@@ -19,3 +21,5 @@ app.add_middleware(
 
 app.include_router(users_router)
 app.include_router(posts_router)
+app.include_router(presence_ws_router)
+app.include_router(ws_router)
