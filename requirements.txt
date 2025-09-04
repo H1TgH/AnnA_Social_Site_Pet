@@ -15,4 +15,3 @@ celery
 redis
 minio==7.2.16
 aioredis==2.0.1
-asyncio
