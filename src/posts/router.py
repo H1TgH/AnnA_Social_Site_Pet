@@ -99,7 +99,7 @@ async def get_user_posts(
         selectinload(PostsModel.comments)
     ).where(PostsModel.user_id == user_id)
     if cursor:
-        query = query.where(PostsModel.created_at <= cursor)
+        query = query.where(PostsModel.created_at < cursor)
     query = query.order_by(PostsModel.created_at.desc()).limit(limit + 1)
 
     posts_result = await session.execute(query)
