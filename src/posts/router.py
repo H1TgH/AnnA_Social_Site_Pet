@@ -137,16 +137,18 @@ async def get_user_posts(
             select(func.count(PostLikesModel.id)).where(PostLikesModel.post_id == post.id)
         )
         
-        response.append({
-            'id': post.id,
-            'text': post.text,
-            'created_at': post.created_at,
-            'updated_at': post.updated_at,
-            'images': images_with_url,
-            'likes_count': likes_count,
-            'comments_count': len(post.comments),
-            'is_liked': is_liked
-        })
+        response.append(
+            {
+                'id': post.id,
+                'text': post.text,
+                'created_at': post.created_at,
+                'updated_at': post.updated_at,
+                'images': images_with_url,
+                'likes_count': likes_count,
+                'comments_count': len(post.comments),
+                'is_liked': is_liked
+            }
+    )
 
     return {
         'posts': response,

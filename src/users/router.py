@@ -1,11 +1,9 @@
-from datetime import timedelta
-from email.message import EmailMessage
-import os
+from datetime import timedelta, date, datetime
+from typing import Literal
 
-from aiosmtplib import send
 from fastapi import APIRouter, Cookie, HTTPException, status, Depends, Query, Response
 from jose import JWTError, jwt
-from sqlalchemy import select, update
+from sqlalchemy import select, update, or_, and_
 from sqlalchemy.exc import IntegrityError
 
 from src.database import SessionDep
@@ -365,4 +363,82 @@ async def update_user_data(
         'gender': updated_user.gender,
         'role': updated_user.role,
         'avatar_url': updated_user.avatar_url
+    }
+
+@users_router.get('/api/v1/search')
+async def search_users(
+    session: SessionDep,
+    user: UserModel = Depends(get_current_user),
+    q: str = Query(..., min_length=1),
+    limit: int = Query(25, ge=1, le=100),
+    cursor: datetime | None = Query(None),
+    sex: Literal['MALE', 'FEMALE', 'NULL'] | None = Query(None),
+    age_min: int | None = Query(None, ge=0),
+    age_max: int | None = Query(None, le=200),
+    birthday: date | None = Query(None)
+):
+    filters = [UserModel.id != user.id]
+
+    full_name = q.lower().split()
+    for name in full_name:
+        filters.append(
+            or_(
+                UserModel.name.ilike(f'%{name}%'),
+                UserModel.surname.ilike(f'%{name}%')
+            )
+        )
+
+    if sex and sex == 'NULL':
+        filters.append(UserModel.gender == None)
+    elif sex is not None:
+        filters.append(UserModel.gender == sex)
+
+    today = date.today()
+    if age_min is not None:
+        max_birthday = today - timedelta(days=age_min*365)
+        filters.append(UserModel.birthday <= max_birthday)
+    if age_max is not None:
+        min_birthday = today - timedelta(days=age_max*365)
+        filters.append(UserModel.birthday >= min_birthday)
+
+    if birthday is not None:
+        filters.append(UserModel.birthday == birthday)
+
+    if cursor is not None:
+        filters.append(UserModel.created_at <= cursor)
+
+    query = select(UserModel).where(and_(*filters)).limit(limit + 1)
+    results = await session.execute(query)
+    users = results.scalars().all()
+
+    if len(users) > limit:
+        next_cursor = users[-1].created_at
+        users = users[:-1]
+    else:
+        next_cursor = None
+
+    response = []
+    for user in users:
+        if user.avatar_url:
+            avatar_url = minio_client.presigned_get_object(
+                bucket_name = 'avatars',
+                object_name=user.avatar_url,
+                expires=timedelta(minutes=10)
+            )
+        else:
+            avatar_url = None
+        response.append(
+            {
+                'id': user.id,
+                'name': user.name,
+                'surname': user.surname,
+                'birthday': user.birthday,
+                'avatar_url': avatar_url
+            }
+        )
+        
+    return {
+        'users': response,
+        'next_cursor': next_cursor,
+        'has_more': bool(next_cursor)
     }
