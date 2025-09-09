@@ -72,18 +72,6 @@ class UserModel(Base):
         server_default='false'
     )
 
-    is_online: Mapped[bool] = mapped_column(
-        Boolean,
-        nullable=False,
-        server_default='false'
-    )
-
-    last_visit: Mapped[datetime] = mapped_column(
-        PGDateTime,
-        nullable=False,
-        server_default=func.now()
-    )
-
     password: Mapped[str] = mapped_column(
         String(60),
         nullable=False
