@@ -1,6 +1,6 @@
 # AnnA - Мессенджер/Социальная сеть
 
-#Описание
+# Описание
 
 Anna - это пет-проект социальной сети с функционалом чата в реальном времени, написанный с использованием микросервисной архитектуры. Проект включает backend на FastAPI, WebSocket для мгновенного обмена сообщениями, а также хранение медиафайлов.
 
@@ -26,26 +26,26 @@ cd AnnA_Social_Site_Pet
 
 Создайте файл `.env` в корне проекта и заполните его своими данными (замените все <...> на свои локальные или тестовые значения.):
 
-# URL вашей базы данных PostgreSQL
+### URL вашей базы данных PostgreSQL
 DATABASE_URL=postgresql+asyncpg://<DB_USER>:<DB_PASSWORD>@<DB_HOST>:<DB_PORT>/<DB_NAME>
 
-# Секретный ключ для JWT
+### Секретный ключ для JWT
 SECRET_KEY=<YOUR_SECRET_KEY>
 
-# URL фронтенда (например, для CORS)
+### URL фронтенда (например, для CORS)
 FRONTEND_URL=http://localhost:3000
 
-# Настройки SMTP для отправки писем
+### Настройки SMTP для отправки писем
 SMTP_HOST=<SMTP_HOST>
 SMTP_PORT=<SMTP_PORT>
 SMTP_USER=<SMTP_USER>
 SMTP_PASSWORD=<SMTP_PASSWORD>
 SMTP_FROM=<SENDER_NAME> <SMTP_USER>
 
-# Redis (для статуса пользователей и очередей)
+### Redis (для статуса пользователей и очередей)
 REDIS_URL=redis://<REDIS_HOST>:<REDIS_PORT>
 
-# MinIO (для хранения медиафайлов)
+### MinIO (для хранения медиафайлов)
 MINIO_ACCESS_KEY=<MINIO_ACCESS_KEY>
 MINIO_SECRET_KEY=<MINIO_SECRET_KEY>
 
