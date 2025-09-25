@@ -84,10 +84,10 @@ async def get_user_posts(
     cursor: datetime | None = Query(None),
     user: UserModel = Depends(get_current_user)
 ):
-    user_result = await session.execute(
+    terget_user_result = await session.execute(
         select(UserModel).where(UserModel.id == user_id)
     )
-    user = user_result.scalar_one_or_none()
+    target_user = terget_user_result.scalar_one_or_none()
     if user is None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
