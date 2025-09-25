@@ -11,6 +11,7 @@ from alembic import context
 from src.database import Base
 from src.users.models import UserModel
 from src.posts.models import PostsModel, PostImagesModel, PostLikesModel, PostCommentsModel
+from src.messages.models import ConversationModel, ConversationParticipantModel, MessageModel
 
 
 config = context.config
